@@ -1,9 +1,0 @@
-[Project]
-Manager=KDevGenericManager
-Name=DISTRHO
-
-[Filters]
-Excludes=*~,*.o
-
-[Project]
-VersionControlSupport=kdevgit

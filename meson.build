@@ -1,6 +1,6 @@
 ###############################################################################
 
-project('DISTRHO-Ports',
+project('Vitality',
     ['c', 'cpp'],
     license : 'GPLv3',
     meson_version: '>=0.55.0',
@@ -342,37 +342,37 @@ endif
 
 subdir('libs')
 
-subdir('ports-juce6.0')
+subdir('vitality')
 
-###############################################################################
-# extra files to install
-
-if 'vitalium' in get_option('plugins')
-    extra_lv2_preset_files = [
-        'Vitalium-unfa.lv2/manifest.ttl',
-        'Vitalium-unfa.lv2/Analog_Brass.ttl',
-        'Vitalium-unfa.lv2/Combat.ttl',
-        'Vitalium-unfa.lv2/Dark_Ambient.ttl',
-        'Vitalium-unfa.lv2/Dark_Bouncy_Groove.ttl',
-        'Vitalium-unfa.lv2/Hardcore_Kick.ttl',
-        'Vitalium-unfa.lv2/Kickbass.ttl',
-        'Vitalium-unfa.lv2/Koto.ttl',
-        'Vitalium-unfa.lv2/Nasty_Growl.ttl',
-        'Vitalium-unfa.lv2/Pianium.ttl',
-        'Vitalium-unfa.lv2/Power_Lead.ttl',
-        'Vitalium-unfa.lv2/Retro_Ambient_Pluck.ttl',
-        'Vitalium-unfa.lv2/Sci_Fi_Computer.ttl',
-        'Vitalium-unfa.lv2/Sci_Fi_Piano.ttl',
-        'Vitalium-unfa.lv2/Sparkly_Dreamy_Pad.ttl',
-        'Vitalium-unfa.lv2/Supersaw.ttl',
-        'Vitalium-unfa.lv2/Trance_Pluck.ttl',
-        'Vitalium-unfa.lv2/Vitalium_Groove.ttl',
-    ]
-    foreach preset_file : extra_lv2_preset_files
-        install_data([ 'static-lv2-ttl/@0@'.format(preset_file) ], 
-             install_dir: lv2dir / 'Vitalium-unfa.lv2',
-         )
-    endforeach
-endif
+# ###############################################################################
+# # extra files to install
+# 
+# if 'vitalium' in get_option('plugins')
+#     extra_lv2_preset_files = [
+#         'Vitalium-unfa.lv2/manifest.ttl',
+#         'Vitalium-unfa.lv2/Analog_Brass.ttl',
+#         'Vitalium-unfa.lv2/Combat.ttl',
+#         'Vitalium-unfa.lv2/Dark_Ambient.ttl',
+#         'Vitalium-unfa.lv2/Dark_Bouncy_Groove.ttl',
+#         'Vitalium-unfa.lv2/Hardcore_Kick.ttl',
+#         'Vitalium-unfa.lv2/Kickbass.ttl',
+#         'Vitalium-unfa.lv2/Koto.ttl',
+#         'Vitalium-unfa.lv2/Nasty_Growl.ttl',
+#         'Vitalium-unfa.lv2/Pianium.ttl',
+#         'Vitalium-unfa.lv2/Power_Lead.ttl',
+#         'Vitalium-unfa.lv2/Retro_Ambient_Pluck.ttl',
+#         'Vitalium-unfa.lv2/Sci_Fi_Computer.ttl',
+#         'Vitalium-unfa.lv2/Sci_Fi_Piano.ttl',
+#         'Vitalium-unfa.lv2/Sparkly_Dreamy_Pad.ttl',
+#         'Vitalium-unfa.lv2/Supersaw.ttl',
+#         'Vitalium-unfa.lv2/Trance_Pluck.ttl',
+#         'Vitalium-unfa.lv2/Vitalium_Groove.ttl',
+#     ]
+#     foreach preset_file : extra_lv2_preset_files
+#         install_data([ 'static-lv2-ttl/@0@'.format(preset_file) ], 
+#              install_dir: lv2dir / 'Vitalium-unfa.lv2',
+#          )
+#     endforeach
+# endif
 
 ###############################################################################
