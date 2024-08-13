@@ -40,10 +40,6 @@ linux_headless = get_option('linux-headless')
 build_lv2 = get_option('build-lv2')
 build_vst2 = get_option('build-vst2') and not linux_headless
 build_vst3 = get_option('build-vst3') and not linux_headless
-build_juce5_only = get_option('build-juce5-only')
-build_juce60_only = get_option('build-juce60-only')
-build_juce61_only = get_option('build-juce61-only')
-build_juce7_only = get_option('build-juce7-only')
 build_universal = get_option('build-universal')
 optimizations = get_option('optimizations') and buildtype != 'debug'
 lto_optimizations = get_option('lto-optimizations') and buildtype != 'debug' and not os_windows
@@ -346,37 +342,10 @@ endif
 
 subdir('libs')
 
-if not (build_juce60_only or build_juce61_only or build_juce7_only)
-    subdir('ports-juce5')
-endif
-
-if not (build_juce5_only or build_juce61_only or build_juce7_only)
-    subdir('ports-juce6.0')
-endif
-
-if not (build_juce5_only or build_juce60_only or build_juce7_only)
-    subdir('ports-juce6.1')
-endif
-
-# NOTICE no plugins imported that use juce7 yet
-if not (build_juce5_only or build_juce60_only or build_juce61_only)
-    subdir('ports-juce7')
-endif
+subdir('ports-juce6.0')
 
 ###############################################################################
 # extra files to install
-
-if 'tal-noisemaker' in get_option('plugins')
-    extra_lv2_preset_files = [
-        'TAL-NoiseMaker-Noise4U.lv2/manifest.ttl',
-        'TAL-NoiseMaker-Noise4U.lv2/presets.ttl',
-    ]
-    foreach preset_file : extra_lv2_preset_files
-        install_data([ 'static-lv2-ttl/@0@'.format(preset_file) ],
-            install_dir: lv2dir / 'TAL-NoiseMaker-Noise4U.lv2',
-        )
-    endforeach
-endif
 
 if 'vitalium' in get_option('plugins')
     extra_lv2_preset_files = [
