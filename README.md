@@ -1,33 +1,9 @@
-# DISTRHO Ports
+# Vitality
 
-[![Build Status](https://travis-ci.org/DISTRHO/DISTRHO-Ports.png)](https://travis-ci.org/DISTRHO/DISTRHO-Ports)
+This is a work-in-progress fork of Vitalium, which is a fork of Matt Tytel's Vital synth.
 
-DISTRHO is an open source project with the goal of making cross-platform audio plugins and GNU/Linux + LV2 ports.
+The Vitalium fork improves the build system and fixes some bugs, especially on Linux systems, and removes external server connections.
 
-<b>This repository contains the GNU/Linux and LV2 ports, specifically those made with [JUCE](https://travis-ci.org/DISTRHO/JUCE)</b>
+The goal of Vitality is to add additional features to the Vital synth codebase, and Vitalium is used as a base for modifications.
 
-## BUILD DEPENDENCIES
-
-To build plugins, you first need to install the following dependencies:
-
-All OSes:
-
-- meson
-
-GNU/Linux: (development versions of these)
-
-- ALSA
-- freetype2
-- fftw3
-- OpenGL/Mesa
-- X11 core and extensions (XShm, XRender and XCursor)
-
-## BUILD and INSTALL
-
-In order to build and install the plugins, just run the usual steps for a meson project:
-
-```
-meson setup build --buildtype release
-ninja -C build
-ninja -C build install
-```
+This readme is a work in progress.
