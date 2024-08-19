@@ -20,31 +20,41 @@
 
 #include <climits>
 
+#include <sst/waveshapers.h>
+
 namespace vital {
 
   namespace {
-    force_inline poly_float linearFold(poly_float value, poly_float drive) {
-      poly_float adjust = value * drive * 0.25f + 0.75f;
-      poly_float range = utils::mod(adjust);
-      return poly_float::abs(range * -4.0f + 2.0f) - 1.0f;
-    }
+    sst::waveshapers::QuadWaveshaperPtr sstInit(int type, sst::waveshapers::QuadWaveshaperState& state) {
+      const sst::waveshapers::WaveshaperType ntype = static_cast<sst::waveshapers::WaveshaperType>(type);
 
-    force_inline poly_float sinFold(poly_float value, poly_float drive) {
-      poly_float adjust = value * drive * -0.25f + 0.5f;
-      poly_float range = utils::mod(adjust);
-      return futils::sin1(range);
-    }
+      float R[sst::waveshapers::n_waveshaper_registers];
+      sst::waveshapers::initializeWaveshaperRegister(ntype, R);
 
-    force_inline poly_float softClip(poly_float value, poly_float drive) {
-      return futils::tanh(value * drive);
-    }
+      for (int i = 0; i < sst::waveshapers::n_waveshaper_registers; ++i)
+      {
+          state.R[i] = _mm_set1_ps(R[i]);
+      }
 
-    force_inline poly_float hardClip(poly_float value, poly_float drive) {
-      return utils::clamp(value * drive, -1.0f, 1.0f);
-    }
+      state.init = _mm_cmpneq_ps(_mm_setzero_ps(), _mm_setzero_ps());
 
-    force_inline poly_float bitCrush(poly_float value, poly_float drive) {
-      return utils::round(value / drive) * drive;
+      return sst::waveshapers::GetQuadWaveshaper(ntype);
+    }
+    poly_float sstProcess(
+      poly_float in,
+      poly_float drive,
+      sst::waveshapers::QuadWaveshaperPtr ws,
+      sst::waveshapers::QuadWaveshaperState& state
+    ) {
+#if VITAL_AVX2
+      #error "Converting AVX2 to Surge SSE2 floats not supported yet. Fix when vital supports AVX2"
+#elif VITAL_SSE2
+      return ws(&state, in.value, drive.value);
+#elif VITAL_NEON
+      // Directly using intel intrinsics TBH doesn't make sense to me because GCC does better optimization natively
+      // TODO: File an upstream issue in surge and encourage use of a typedef __attribute__ ((vector_size (n))) instead
+      #error "Surge waveshapers don't support NEON. File an upstream issue"
+#endif
     }
 
     force_inline int compactAudio(poly_float* audio_out, const poly_float* audio_in, int num_samples) {
@@ -76,19 +86,31 @@ namespace vital {
   } // namespace
 
   poly_float Distortion::getDrivenValue(int type, poly_float value, poly_float drive) {
+    // Recreate the distort every time; Fresh state
+    sst::waveshapers::QuadWaveshaperState state;
+    sst::waveshapers::QuadWaveshaperPtr sst_ws;
+
     switch(type) {
       case kSoftClip:
-        return softClip(value, drive);
+        // There are small differences between Vital and Surge soft waveshapers;
+        // See my plots. This will change sound. Probably only slightly.
+        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_soft), state);
+        return sstProcess(value, drive, sst_ws, state);
       case kHardClip:
-        return hardClip(value, drive);
+        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_hard), state);
+        return sstProcess(value, drive, sst_ws, state);
       case kLinearFold:
-        return linearFold(value, drive);
+        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_linearfold), state);
+        return sstProcess(value, drive, sst_ws, state);
       case kSinFold:
-        return sinFold(value, drive);
+        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_sinefold), state);
+        return sstProcess(value, drive, sst_ws, state);
       case kBitCrush:
-        return bitCrush(value, drive);
+        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_digital), state);
+        return sstProcess(value, drive * 16.0f, sst_ws, state);
       case kDownSample:
-        return bitCrush(value, poly_float(1.001f) - poly_float(kPeriodScale) / drive);
+        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_digital), state);
+        return sstProcess(value, (poly_float(1.001f) - poly_float(kPeriodScale) / drive) * 16.0f, sst_ws, state);
       default:
         return value;
     }
@@ -97,13 +119,13 @@ namespace vital {
   Distortion::Distortion() : Processor(kNumInputs, kNumOutputs),
                              last_distorted_value_(0.0f), current_samples_(0.0f), type_(kNumTypes) { }
 
-  template<poly_float(*distort)(poly_float, poly_float), poly_float(*scale)(poly_float)>
+  template<poly_float(*scale)(poly_float)>
   void Distortion::processTimeInvariant(int num_samples, const poly_float* audio_in, const poly_float* drive,
                                         poly_float* audio_out) {
     for (int i = 0; i < num_samples; ++i) {
       poly_float current_drive = scale(drive[i]);
       poly_float sample = audio_in[i];
-      audio_out[i] = distort(sample, current_drive);
+      audio_out[i] = sstProcess(sample, current_drive, sst_ptr_, sst_wss_);
       VITAL_ASSERT(utils::isContained(audio_out[i]));
     }
   }
@@ -144,30 +166,24 @@ namespace vital {
       type_ = type;
       last_distorted_value_ = 0.0f;
       current_samples_ = 0.0f;
+      switch(type) {
+        case kSoftClip: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_soft), sst_wss_); break;
+        case kHardClip: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_hard), sst_wss_); break;
+        case kLinearFold: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_linearfold), sst_wss_); break;
+        case kSinFold: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_sinefold), sst_wss_); break;
+        case kBitCrush: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_digital), sst_wss_); break;
+        case kDownSample: default: sst_ptr_ = NULL;
+      }
     }
 
-    switch(type) {
-      case kSoftClip:
-        processTimeInvariant<softClip, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
-        break;
-      case kHardClip:
-        processTimeInvariant<hardClip, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
-        break;
-      case kLinearFold:
-        processTimeInvariant<linearFold, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
-        break;
-      case kSinFold:
-        processTimeInvariant<sinFold, driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
-        break;
-      case kBitCrush:
-        processTimeInvariant<bitCrush, bitCrushScale>(compact_samples, audio_out, drive_out, audio_out);
-        break;
-      case kDownSample:
-        processDownSample(compact_samples, audio_out, drive_out, audio_out);
-        break;
-      default:
-        utils::copyBuffer(audio_out, audio_in, num_samples);
-        return;
+    if (sst_ptr_) {
+      if (type == kBitCrush) {
+        processTimeInvariant<bitCrushScale>(compact_samples, audio_out, drive_out, audio_out);
+      } else {
+        processTimeInvariant<driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
+      }
+    } else {
+      processDownSample(compact_samples, audio_out, drive_out, audio_out);
     }
 
     expandAudio(audio_out, audio_out, num_samples);

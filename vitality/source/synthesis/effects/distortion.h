@@ -19,6 +19,8 @@
 #include "processor.h"
 #include "futils.h"
 
+#include <sst/waveshapers.h>
+
 namespace vital {
 
   class Distortion : public Processor {
@@ -59,7 +61,7 @@ namespace vital {
         constexpr mono_float kDriveScale = 1.0f / (Distortion::kMaxDrive - Distortion::kMinDrive);
 
         poly_float drive = utils::max(db - kMinDrive, 0.0f) * kDriveScale;
-        return utils::clamp(drive * drive, kMinDistortionMult, 1.0f);
+        return utils::clamp(drive * drive, kMinDistortionMult, 1.0f) * 16.0f; // x16 compensates for the SST scale
       }
 
       static force_inline poly_float downSampleScale(poly_float db) {
@@ -72,10 +74,8 @@ namespace vital {
       }
 
       static poly_float getDriveValue(int type, poly_float input_drive) {
-        if (type == kBitCrush)
-          return bitCrushScale(input_drive);
-        if (type == kDownSample)
-          return downSampleScale(input_drive);
+        if (type == kBitCrush) return bitCrushScale(input_drive);
+        if (type == kDownSample) return downSampleScale(input_drive);
         return driveDbScale(input_drive);
       }
 
@@ -92,7 +92,7 @@ namespace vital {
       virtual void process(int num_samples) override;
       virtual void processWithInput(const poly_float* audio_in, int num_samples) override;
 
-      template<poly_float(*distort)(poly_float, poly_float), poly_float(*scale)(poly_float)>
+      template<poly_float(*scale)(poly_float)>
       void processTimeInvariant(int num_samples, const poly_float* audio_in, const poly_float* drive, 
                                 poly_float* audio_out);
 
@@ -103,6 +103,9 @@ namespace vital {
       poly_float last_distorted_value_;
       poly_float current_samples_;
       int type_;
+      sst::waveshapers::QuadWaveshaperState sst_wss_{};
+      sst::waveshapers::WaveshaperType sst_last_ = sst::waveshapers::WaveshaperType::wst_none;
+      sst::waveshapers::QuadWaveshaperPtr sst_ptr_ = NULL;
 
       JUCE_LEAK_DETECTOR(Distortion)
   };

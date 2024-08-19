@@ -6,6 +6,7 @@ plugin_include_dirs = [
     include_directories('../libs/juce6.0/source/modules'),
     include_directories('../libs/juce6.0/source/modules/juce_audio_processors/format_types/VST3_SDK'),
     include_directories('../libs/juce-plugin'),
+    include_directories('../libs/sst-waveshapers/include'),
     juce60_extra_include_dirs
 ]
 

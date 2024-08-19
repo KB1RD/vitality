@@ -3,4 +3,4 @@
 	url = https://github.com/DISTRHO/JUCE.git
 [submodule "libs/sst-waveshapers"]
 	path = libs/sst-waveshapers
-	url = https://github.com/surge-synthesizer/sst-waveshapers.git
+	url = https://github.com/KB1RD/sst-waveshapers.git
