@@ -20,6 +20,8 @@
 
 #include <string>
 
+#include <sst/waveshapers.h>
+
 namespace vital {
 
   constexpr int kNumLfos = 8;
@@ -121,6 +123,8 @@ namespace vital {
       kPhase,
       kNumFilterModels
     };
+
+    typedef sst::waveshapers::WaveshaperType DistortionType;
 
     enum RetriggerStyle {
       kFree,

@@ -27,6 +27,7 @@
 #include "voice_handler.h"
 #include "wavetable.h"
 #include "utils.h"
+#include "synth_constants.h"
 
 #include <cfloat>
 
@@ -86,7 +87,7 @@ namespace vital {
       ValueDetails::kIndexed, false, "", "Delay Tempo 2", strings::kSyncedFrequencyNames },
     { "distortion_on", 0x000000, 0.0, 1.0, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Distortion Switch", strings::kOffOnNames },
-    { "distortion_type", 0x000000, 0.0, 5.0, 0.0, 0.0, 1.0,
+    { "distortion_type", 0x000000, 0.0, (int)vital::constants::DistortionType::n_ws_types - 1, 0.0, 0.0, 1.0,
       ValueDetails::kIndexed, false, "", "Distortion Type", strings::kDistortionTypeNames },
     { "distortion_drive", 0x000000, Distortion::kMinDrive, Distortion::kMaxDrive, 0.0, 0.0, 1.0,
       ValueDetails::kLinear, false, " dB", "Distortion Drive", nullptr },

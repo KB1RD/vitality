@@ -88,36 +88,25 @@ namespace vital {
   poly_float Distortion::getDrivenValue(int type, poly_float value, poly_float drive) {
     // Recreate the distort every time; Fresh state
     sst::waveshapers::QuadWaveshaperState state;
-    sst::waveshapers::QuadWaveshaperPtr sst_ws;
+    sst::waveshapers::QuadWaveshaperPtr sst_ws = sstInit(type, state);
 
-    switch(type) {
-      case kSoftClip:
-        // There are small differences between Vital and Surge soft waveshapers;
-        // See my plots. This will change sound. Probably only slightly.
-        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_soft), state);
-        return sstProcess(value, drive, sst_ws, state);
-      case kHardClip:
-        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_hard), state);
-        return sstProcess(value, drive, sst_ws, state);
-      case kLinearFold:
-        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_linearfold), state);
-        return sstProcess(value, drive, sst_ws, state);
-      case kSinFold:
-        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_sinefold), state);
-        return sstProcess(value, drive, sst_ws, state);
-      case kBitCrush:
-        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_digital), state);
+    if (sst_ws) {
+      // Use the existing bit crush scale from Vital for the "digital" (bit crush) effect
+      if (type == (int)vital::constants::DistortionType::wst_digital) {
         return sstProcess(value, drive * 16.0f, sst_ws, state);
-      case kDownSample:
-        sst_ws = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_digital), state);
-        return sstProcess(value, (poly_float(1.001f) - poly_float(kPeriodScale) / drive) * 16.0f, sst_ws, state);
-      default:
-        return value;
+      } else {
+        return sstProcess(value, drive, sst_ws, state);
+      }
+    } else {
+      // When using wst_none, assume this is a downsample instead
+      sst_ws = sstInit((int)vital::constants::DistortionType::wst_digital, state);
+      return sstProcess(value, (poly_float(1.001f) - poly_float(kPeriodScale) / drive) * 16.0f, sst_ws, state);
     }
   }
 
   Distortion::Distortion() : Processor(kNumInputs, kNumOutputs),
-                             last_distorted_value_(0.0f), current_samples_(0.0f), type_(kNumTypes) { }
+                             last_distorted_value_(0.0f), current_samples_(0.0f),
+                             type_((int)vital::constants::DistortionType::n_ws_types) { }
 
   template<poly_float(*scale)(poly_float)>
   void Distortion::processTimeInvariant(int num_samples, const poly_float* audio_in, const poly_float* drive,
@@ -166,23 +155,18 @@ namespace vital {
       type_ = type;
       last_distorted_value_ = 0.0f;
       current_samples_ = 0.0f;
-      switch(type) {
-        case kSoftClip: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_soft), sst_wss_); break;
-        case kHardClip: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_hard), sst_wss_); break;
-        case kLinearFold: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_linearfold), sst_wss_); break;
-        case kSinFold: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_sinefold), sst_wss_); break;
-        case kBitCrush: sst_ptr_ = sstInit(static_cast<int>(sst::waveshapers::WaveshaperType::wst_digital), sst_wss_); break;
-        case kDownSample: default: sst_ptr_ = NULL;
-      }
+      sst_ptr_ = sstInit(type, sst_wss_);
     }
 
     if (sst_ptr_) {
-      if (type == kBitCrush) {
+      // Use the existing bit crush scale from Vital for the "digital" (bit crush) effect
+      if (type == (int)vital::constants::DistortionType::wst_digital) {
         processTimeInvariant<bitCrushScale>(compact_samples, audio_out, drive_out, audio_out);
       } else {
         processTimeInvariant<driveDbScale>(compact_samples, audio_out, drive_out, audio_out);
       }
     } else {
+      // When using wst_none, assume this is a downsample instead
       processDownSample(compact_samples, audio_out, drive_out, audio_out);
     }
 

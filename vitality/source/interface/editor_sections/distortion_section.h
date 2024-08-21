@@ -104,7 +104,7 @@ class DistortionFilterResponse : public OpenGlLineRenderer {
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistortionFilterResponse)
 };
 
-class DistortionSection : public SynthSection {
+class DistortionSection : public SynthSection, public PresetSelector::Listener {
   public:
     static constexpr int kViewerResolution = 124;
 
@@ -118,10 +118,15 @@ class DistortionSection : public SynthSection {
     void sliderValueChanged(Slider* changed_slider) override;
     void setAllValues(vital::control_map& controls) override;
     void setFilterActive(bool active);
+    void prevClicked() override;
+    void nextClicked() override;
+    void textMouseDown(const MouseEvent& e) override;
+    void setActiveType(int type);
+    void onActiveTypeChange(int type);
 
   private:
     std::unique_ptr<SynthButton> on_;
-    std::unique_ptr<TextSelector> type_;
+    std::unique_ptr<PresetSelector> preset_selector_;
     std::unique_ptr<TextSelector> filter_order_;
     std::unique_ptr<SynthSlider> drive_;
     std::unique_ptr<SynthSlider> mix_;
@@ -130,6 +135,8 @@ class DistortionSection : public SynthSection {
     std::unique_ptr<SynthSlider> filter_blend_;
     std::unique_ptr<DistortionViewer> distortion_viewer_;
     std::unique_ptr<DistortionFilterResponse> filter_response_;
+
+    int current_type_ = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(DistortionSection)
 };

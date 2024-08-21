@@ -26,13 +26,14 @@
 #include "synth_slider.h"
 #include "text_selector.h"
 #include "text_look_and_feel.h"
+#include "synth_constants.h"
 
 class DistortionViewer : public OpenGlLineRenderer {
   public:
     static constexpr float kDrawPercent = 0.9f;
 
     DistortionViewer(int resolution, const vital::output_map& mono_modulations) :
-        OpenGlLineRenderer(resolution), type_slider_(nullptr), drive_slider_(nullptr) {
+        OpenGlLineRenderer(resolution), type_ptr_(nullptr), drive_slider_(nullptr) {
       drive_ = mono_modulations.at("distortion_drive");
       active_ = true;
       setFill(true);
@@ -46,7 +47,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     }
 
     void drawDistortion(OpenGlWrapper& open_gl, bool animate, int index) {
-      vital::poly_float drive = vital::Distortion::getDriveValue(type_slider_->getValue(), getDrive());
+      vital::poly_float drive = vital::Distortion::getDriveValue(*type_ptr_, getDrive());
 
       float width = getWidth();
       float height = getHeight();
@@ -56,7 +57,7 @@ class DistortionViewer : public OpenGlLineRenderer {
         float t = i / (num_points - 1.0f);
         float val = 2.0f * t - 1.0f;
         setXAt(i, t * width);
-        float result = kDrawPercent * vital::Distortion::getDrivenValue(type_slider_->getValue(), val, drive)[index];
+        float result = kDrawPercent * vital::Distortion::getDrivenValue(*type_ptr_, val, drive)[index];
         setYAt(i, (1.0f - result) * y_scale);
       }
 
@@ -101,7 +102,7 @@ class DistortionViewer : public OpenGlLineRenderer {
       drive_slider_->setValue(drive_slider_->getValue() - delta.y * drive_range / getWidth());
     }
 
-    void setTypeSlider(Slider* slider) { type_slider_ = slider; }
+    void setTypePtr(int* ptr) { type_ptr_ = ptr; }
     void setDriveSlider(Slider* slider) { drive_slider_ = slider; }
     void setActive(bool active) { active_ = active; }
 
@@ -110,7 +111,7 @@ class DistortionViewer : public OpenGlLineRenderer {
     Point<int> last_mouse_position_;
 
     vital::Output* drive_;
-    Slider* type_slider_;
+    int* type_ptr_;
     Slider* drive_slider_;
 };
 
@@ -325,11 +326,14 @@ void DistortionFilterResponse::drawFilterResponse(OpenGlWrapper& open_gl, bool a
 }
 
 DistortionSection::DistortionSection(String name, const vital::output_map& mono_modulations) : SynthSection(name) {
-  type_ = std::make_unique<TextSelector>("distortion_type");
-  addSlider(type_.get());
-  type_->setSliderStyle(Slider::RotaryHorizontalVerticalDrag);
-  type_->setLookAndFeel(TextLookAndFeel::instance());
-  type_->setLongStringLookup(strings::kDistortionTypeNames);
+  // Use a preset selector for the type; Note this means we have to MANUALLY track state!
+  preset_selector_ = std::make_unique<PresetSelector>();
+  addSubSection(preset_selector_.get());
+  preset_selector_->addListener(this);
+  setPresetSelector(preset_selector_.get());
+  preset_selector_->setTextComponent(true);
+  // Ok, if you see this, the class didn't init right; should set the value in setAllValues
+  preset_selector_->setText("Error!");
 
   filter_order_ = std::make_unique<TextSelector>("distortion_filter_order");
   addSlider(filter_order_.get());
@@ -354,7 +358,7 @@ DistortionSection::DistortionSection(String name, const vital::output_map& mono_
   int resolution = kViewerResolution;
   distortion_viewer_ = std::make_unique<DistortionViewer>(resolution, mono_modulations);
   addOpenGlComponent(distortion_viewer_.get());
-  distortion_viewer_->setTypeSlider(type_.get());
+  distortion_viewer_->setTypePtr(&current_type_);
 
   drive_ = std::make_unique<SynthSlider>("distortion_drive");
   addSlider(drive_.get());
@@ -383,14 +387,18 @@ void DistortionSection::paintBackground(Graphics& g) {
   SynthSection::paintBackground(g);
   setLabelFont(g);
 
-  drawTextComponentBackground(g, type_->getBounds(), true);
+  // This creates the label at the base of the selector
+  g.setColour(findColour(Skin::kBody, true));
+  g.fillRect(preset_selector_->getBounds());
+  drawTextComponentBackground(g, preset_selector_->getBounds(), true);
+  drawLabelForComponent(g, TRANS("TYPE"), preset_selector_.get(), true);
+
   drawTextComponentBackground(g, filter_order_->getBounds(), true);
   drawLabelForComponent(g, TRANS("DRIVE"), drive_.get());
   drawLabelForComponent(g, TRANS("MIX"), mix_.get());
   drawLabelForComponent(g, TRANS("CUTOFF"), filter_cutoff_.get());
   drawLabelForComponent(g, TRANS("RESONANCE"), filter_resonance_.get());
   drawLabelForComponent(g, TRANS("BLEND"), filter_blend_.get());
-  drawLabelForComponent(g, TRANS("TYPE"), type_.get(), true);
   drawLabelForComponent(g, TRANS("FILTER"), filter_order_.get(), true);
 }
 
@@ -407,7 +415,6 @@ void DistortionSection::resized() {
   int widget_width = knobs_area.getX() - widget_x;
   
   int knob_y2 = section_height - widget_margin;
-  type_->setBounds(settings_area.getX(), widget_margin, settings_area.getWidth(), section_height - 2 * widget_margin);
   filter_order_->setBounds(settings_area.getX(), knob_y2 + widget_margin,
                            settings_area.getWidth(), section_height - 2 * widget_margin);
 
@@ -426,6 +433,10 @@ void DistortionSection::resized() {
   setFilterActive(filter_order_->getValue() != 0.0f && isActive());
 
   SynthSection::resized();
+
+  // This only works AFTER the synth section resize for some reason
+  preset_selector_->setBounds(settings_area.getX(), widget_margin,
+                              settings_area.getWidth(), section_height - 2 * widget_margin);
 }
 
 void DistortionSection::setActive(bool active) {
@@ -444,6 +455,7 @@ void DistortionSection::sliderValueChanged(Slider* changed_slider) {
 void DistortionSection::setAllValues(vital::control_map& controls) {
   SynthSection::setAllValues(controls);
   setFilterActive(filter_order_->getValue() != 0.0f && isActive());
+  this->setActiveType(std::round(controls["distortion_type"]->value()));
 }
 
 void DistortionSection::setFilterActive(bool active) {
@@ -451,4 +463,63 @@ void DistortionSection::setFilterActive(bool active) {
   filter_cutoff_->setActive(active);
   filter_resonance_->setActive(active);
   filter_blend_->setActive(active);
+}
+
+// `onActiveTypeChange` automatically clips the type
+void DistortionSection::prevClicked() { this->onActiveTypeChange(current_type_ - 1); }
+void DistortionSection::nextClicked() { this->onActiveTypeChange(current_type_ + 1); }
+
+void DistortionSection::textMouseDown(const MouseEvent& e) {
+  PopupItems options;
+
+  std::map<std::string, PopupItems> submenus;
+  // First, list all of our categories and build submenus for them
+  for (const std::pair<int, std::string>& e : sst::waveshapers::WaveshaperGroupName()) {
+    if (e.second.length()) submenus[e.second] = PopupItems(e.second);
+  }
+
+  // Next, add each item to the appropriate menu. Note that we add down sample manually using the wst_none option
+  // This is a special case since Surge treats down sampling as a filter
+  submenus["Effect"].addItem((int)vital::constants::DistortionType::wst_none, "Down Sample");
+  for (const std::pair<int, std::string>& e : sst::waveshapers::WaveshaperGroupName()) {
+    if (e.second.length()) submenus[e.second].addItem(e.first, sst::waveshapers::wst_names[e.first]);
+  }
+  
+  // Now, add the submenus to our main menu
+  for (const auto& e : submenus) {
+    options.addItem(e.second);
+  }
+
+  // And display
+  Point<int> position(getWidth(), preset_selector_->getY());
+  position = Point<int>(preset_selector_->getRight() - getDualPopupWidth(), preset_selector_->getBottom());
+  showDualPopupSelector(this, position, getDualPopupWidth(),
+                        options, [=](int selection) { onActiveTypeChange(selection); });
+}
+
+void DistortionSection::setActiveType(int type) {
+  // Make the type wrap around if its out of range
+  if (type >= (int)vital::constants::DistortionType::n_ws_types) {
+    type = 0;
+  } else if (type < 0) {
+    type = ((int)vital::constants::DistortionType::n_ws_types) - 1;
+  }
+
+  current_type_ = type;
+  if (type == (int)vital::constants::DistortionType::wst_none) {
+    // Special Case: Hackily use the wst_none for our down sample.
+    preset_selector_->setText("Down Sample");
+  } else {
+    preset_selector_->setText(sst::waveshapers::wst_names[type]);
+  }
+}
+
+void DistortionSection::onActiveTypeChange(int type) {
+  this->setActiveType(type);
+  // Notify synth host of change
+  SynthGuiInterface* parent = findParentComponentOfClass<SynthGuiInterface>();
+  if (parent) {
+    // Note we MUST use current_type_ here to let the type be clipped automatically by setActiveType
+    parent->getSynth()->valueChangedInternal("distortion_type", current_type_);
+  }
 }

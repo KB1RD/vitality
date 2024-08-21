@@ -18,6 +18,7 @@
 
 #include "processor.h"
 #include "futils.h"
+#include "synth_constants.h"
 
 #include <sst/waveshapers.h>
 
@@ -43,15 +44,7 @@ namespace vital {
         kNumOutputs
       };
 
-      enum Type {
-        kSoftClip,
-        kHardClip,
-        kLinearFold,
-        kSinFold,
-        kBitCrush,
-        kDownSample,
-        kNumTypes
-      };
+      // Filter type is defined in common/synth_constants.h to be the sst::waveshapers::WaveshaperType
 
       static force_inline poly_float driveDbScale(poly_float db) {
         return futils::dbToMagnitude(utils::clamp(db, kMinDrive, kMaxDrive));
@@ -74,8 +67,8 @@ namespace vital {
       }
 
       static poly_float getDriveValue(int type, poly_float input_drive) {
-        if (type == kBitCrush) return bitCrushScale(input_drive);
-        if (type == kDownSample) return downSampleScale(input_drive);
+        if (type == (int)vital::constants::DistortionType::wst_digital) return bitCrushScale(input_drive);
+        if (type == (int)vital::constants::DistortionType::wst_none) return downSampleScale(input_drive);
         return driveDbScale(input_drive);
       }
 
