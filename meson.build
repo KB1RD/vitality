@@ -37,6 +37,7 @@ if libdir.contains('/')
 endif
 
 linux_headless = get_option('linux-headless')
+build_standalone = get_option('build-standalone') and not linux_headless
 build_lv2 = get_option('build-lv2')
 build_vst2 = get_option('build-vst2') and not linux_headless
 build_vst3 = get_option('build-vst3') and not linux_headless

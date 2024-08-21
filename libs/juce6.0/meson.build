@@ -33,6 +33,9 @@ endif
 juce60_devices_srcs = [
     'source/modules/juce_audio_devices/juce_audio_devices.cpp',
 ]
+juce60_utils_srcs = [
+    'source/modules/juce_audio_utils/juce_audio_utils.cpp',
+]
 
 juce60_extra_cpp_args = [
     '-std=gnu++14',
@@ -82,6 +85,20 @@ lib_juce60_device = static_library('juce60-devices',
     ],
     cpp_args: build_flags_cpp + juce60_extra_cpp_args + ['-DJUCE_MODULE_AVAILABLE_juce_audio_devices=1'],
     dependencies: dependencies_devices,
+    pic: true,
+    install: false,
+)
+
+lib_juce60_utils = static_library('juce60-utils',
+    sources: juce60_utils_srcs,
+    include_directories: [
+        include_directories('.'),
+        include_directories('source'),
+        include_directories('source/modules'),
+        juce60_extra_include_dirs
+    ],
+    cpp_args: build_flags_cpp + juce60_extra_cpp_args,
+    dependencies: dependencies,
     pic: true,
     install: false,
 )

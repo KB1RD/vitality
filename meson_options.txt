@@ -28,6 +28,12 @@ option('linux-headless',
     description: 'DSP-only plugin builds, without editor/GUI',
 )
 
+option('build-standalone',
+    type: 'boolean',
+    value: true,
+    description: 'Build standalone plugin variants',
+)
+
 option('build-lv2',
     type: 'boolean',
     value: true,

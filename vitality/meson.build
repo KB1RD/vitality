@@ -24,6 +24,16 @@ build_flag_plugin_cpp = [
 ###############################################################################
 # format-specific build flags
 
+build_flags_plugin_standalone = [
+    '-DJucePlugin_Build_AU=0',
+    '-DJucePlugin_Build_LV2=0',
+    '-DJucePlugin_Build_RTAS=0',
+    '-DJucePlugin_Build_VST=0',
+    '-DJucePlugin_Build_VST3=0',
+    '-DJucePlugin_Build_Standalone=1',
+    #'-DJUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1'
+]
+
 build_flags_plugin_lv2 = [
     '-DJucePlugin_Build_AU=0',
     '-DJucePlugin_Build_LV2=1',
@@ -63,6 +73,8 @@ endif
 # format-specific link flags
 
 link_flags_plugin_common = [
+]
+link_flags_plugin_standalone = [
 ]
 
 if os_darwin
@@ -232,6 +244,23 @@ plugin_lib = static_library(plugin_name + '_lib',
     pic: true,
     install: false,
 )
+
+if build_standalone
+    plugin_standalone = executable(plugin_name + '_standalone',
+        name_prefix: '',
+        sources: plugin_extra_format_specific_srcs,
+        include_directories: [
+            include_directories('.'),
+            plugin_include_dirs,
+            plugin_extra_include_dirs,
+        ],
+        c_args: build_flags + build_flags_plugin + build_flags_plugin_standalone + plugin_extra_build_flags,
+        cpp_args: build_flags_cpp + build_flags_plugin + build_flags_plugin_standalone + build_flag_plugin_cpp + plugin_extra_build_flags,
+        link_args: link_flags + link_flags_plugin_common + link_flags_plugin_standalone + plugin_extra_link_flags,
+        link_with: [ lib_juce60, lib_juce60_device, lib_juce60_utils, plugin_lib ],
+        install: false,
+    )
+endif
 
 if build_lv2
     plugin_lv2_lib = shared_library(plugin_name + '-lv2',

@@ -50,7 +50,15 @@
  #endif
 
 #elif JucePlugin_Build_Standalone
- #include "juce_StandaloneFilterApplication.cpp"
+ #include "modules/juce_audio_plugin_client/Standalone/juce_StandaloneFilterApp.cpp"
+
+  // I couldn't figure out the JUCE way of doing this... Many of their macros just error out
+  // Anyway, this works, so whatever
+  juce::JUCEApplicationBase* juce_CreateApplication() {
+      return new juce::StandaloneFilterApp();
+  }
+
+  JUCE_MAIN_FUNCTION_DEFINITION
 #else
  #error Invalid configuration
 #endif
