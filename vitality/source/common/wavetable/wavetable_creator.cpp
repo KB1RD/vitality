@@ -471,7 +471,8 @@ json WavetableCreator::stateToJson() {
     { "groups", json_groups },
     { "name", wavetable_->getName() },
     { "author", wavetable_->getAuthor() },
-    { "version", ProjectInfo::versionString },
+    // Use the upstream version here; We're not doing anything non-standard
+    { "version", ProjectInfo::upstreamVersionString },
     { "remove_all_dc", remove_all_dc_ },
     { "full_normalize", full_normalize_ },
   };

@@ -134,7 +134,7 @@ void SynthPresetSelector::newPresetSelected(File preset) {
   if (result)
     resetText();
   else {
-    error = "There was an error open the preset. " + error;
+    error = "There was an error opening the preset. " + error;
     AlertWindow::showNativeDialogBox("Error opening preset", error, false);
   }
 }
@@ -282,7 +282,7 @@ void SynthPresetSelector::importPreset() {
   std::string error;
   if (!parent->getSynth()->loadFromFile(choice, error)) {
     std::string name = ProjectInfo::projectName;
-    error = "There was an error open the preset. " + error;
+    error = "There was an error opening the preset. " + error;
     AlertWindow::showNativeDialogBox("Error opening preset", error, false);
   }
   else

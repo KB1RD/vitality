@@ -218,7 +218,8 @@ void SynthPlugin::setStateInformation(const void* data, int size_in_bytes) {
       getTuning()->jsonToState(json_data["tuning"]);
   }
   catch (const json::exception& e) {
-    std::string error = "There was an error open the preset. Preset file is corrupted.";
+    std::string error = "There was an error opening the preset. Preset file is corrupted. Message is: ";
+    error += e.what();
 #if ! JUCE_AUDIOPROCESSOR_NO_GUI
     AlertWindow::showNativeDialogBox("Error opening preset", error, false);
 #else

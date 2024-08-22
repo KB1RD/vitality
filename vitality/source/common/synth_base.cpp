@@ -401,7 +401,8 @@ bool SynthBase::loadFromFile(File preset, std::string& error) {
     active_file_ = preset;
   }
   catch (const json::exception& e) {
-    error = "Preset file is corrupted.";
+    error = "Preset file is corrupted. Message is: ";
+    error += e.what();
     return false;
   }
   

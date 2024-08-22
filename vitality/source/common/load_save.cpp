@@ -274,6 +274,20 @@ json LoadSave::updateFromOldVersion(json state) {
 
   std::string version = state["synth_version"];
 
+  // The version with the `vitality.` prefix
+  // If "", then we're upgrading from a non-vitality version
+  std::string vitality_version = "";
+
+  if (version.rfind("vitality.", 0) == 0) {
+    // Ok, we're loading a vitality preset. First, do our own patching...
+    
+    // Nothing here... yet
+
+    // ... And finally set the Vital version string so that Vital can figure out how to further patch:
+    vitality_version = version;
+    version = ProjectInfo::upstreamVersionString;
+  }
+
   if (compareVersionStrings(version, "0.2.0") < 0 || settings.count("sub_octave")) {
     int sub_waveform = settings["sub_waveform"];
     if (sub_waveform == 4)
@@ -1018,6 +1032,19 @@ json LoadSave::updateFromOldVersion(json state) {
     }
   }
 
+  // Ok, so we're upgrading from Vital -> Vitality
+  if (!vitality_version.length()) {
+    switch ((int)settings["distortion_type"]) {
+      case 1: settings["distortion_type"] = vital::constants::DistortionType::wst_hard; break;
+      case 2: settings["distortion_type"] = vital::constants::DistortionType::wst_linearfold; break;
+      case 3: settings["distortion_type"] = vital::constants::DistortionType::wst_sinefold; break;
+      case 4: settings["distortion_type"] = vital::constants::DistortionType::wst_digital; break;
+      case 5: settings["distortion_type"] = vital::constants::DistortionType::wst_none; break; // No waveshape; Downsample
+      default:
+      case 0: settings["distortion_type"] = vital::constants::DistortionType::wst_soft; break;
+    }
+  }
+
   settings["modulations"] = modulations;
   settings["sample"] = sample;
   state["settings"] = settings;
@@ -1129,7 +1156,7 @@ std::string LoadSave::getLicense(json data) {
 File LoadSave::getConfigFile() {
 #if defined(JUCE_DATA_STRUCTURES_H_INCLUDED)
   PropertiesFile::Options config_options;
-  config_options.applicationName = "Vitality";
+  config_options.applicationName = String(ProjectInfo::projectName);
   config_options.osxLibrarySubFolder = "Application Support";
   config_options.filenameSuffix = "config";
 
@@ -1165,7 +1192,7 @@ void LoadSave::writeErrorLog(String error_log) {
 File LoadSave::getFavoritesFile() {
 #if defined(JUCE_DATA_STRUCTURES_H_INCLUDED)
   PropertiesFile::Options config_options;
-  config_options.applicationName = "Vitality";
+  config_options.applicationName = String(ProjectInfo::projectName);
   config_options.osxLibrarySubFolder = "Application Support";
   config_options.filenameSuffix = "favorites";
 
@@ -1184,7 +1211,7 @@ File LoadSave::getFavoritesFile() {
 File LoadSave::getDefaultSkin() {
 #if defined(JUCE_DATA_STRUCTURES_H_INCLUDED)
   PropertiesFile::Options config_options;
-  config_options.applicationName = "Vitality";
+  config_options.applicationName = String(ProjectInfo::projectName);
   config_options.osxLibrarySubFolder = "Application Support";
   config_options.filenameSuffix = "skin";
 
@@ -1819,6 +1846,23 @@ int LoadSave::compareFeatureVersionStrings(String a, String b) {
 int LoadSave::compareVersionStrings(String a, String b) {
   a.trim();
   b.trim();
+
+  if (a.startsWith("vitality.") && b.startsWith("vitality.")) {
+    // Compare two Vitality versions
+    return compareVersionStrings(a.fromFirstOccurrenceOf(".", false, true),
+                               b.fromFirstOccurrenceOf(".", false, true));
+  } else if (a.startsWith("vitality.")) {
+    // Compare a Vitality version with a non-vitality version
+    // If the upstream version older, then we have a problem. I think the best thing to do here is flag us
+    // as old for compatibility (would generate an error in most cases)
+    // Otherwise, we're newer by default
+    return compareVersionStrings(ProjectInfo::upstreamVersionString,
+                               b.fromFirstOccurrenceOf(".", false, true)) < 0 ? -1 : 1;
+  } else if (b.startsWith("vitality.")) {
+    // Same logic, but for b
+    return compareVersionStrings(a.fromFirstOccurrenceOf(".", false, true),
+                               ProjectInfo::upstreamVersionString) > 0 ? 1 : -1;
+  }
 
   if (a.isEmpty() && b.isEmpty())
     return 0;
